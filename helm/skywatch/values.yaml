@@ -2,8 +2,8 @@
 frontend:
   image:
     repository: ghcr.io/sharondescalo/skywatch-frontend
-    tag: "unreleased"
+    tag: "c508ce0e2430224667de036d445c8a7b318c5862"
 backend:
   image:
     repository: ghcr.io/sharondescalo/skywatch-backend
-    tag: "unreleased"
+    tag: "c508ce0e2430224667de036d445c8a7b318c5862"
