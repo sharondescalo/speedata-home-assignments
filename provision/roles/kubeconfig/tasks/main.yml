@@ -1,0 +1,47 @@
+---
+- name: Read the server kubeconfig
+  ansible.builtin.command: >-
+    multipass exec {{ groups['k3s_server'][0] }} -- sudo cat /etc/rancher/k3s/k3s.yaml
+  register: server_kubeconfig
+  changed_when: false
+
+- name: Point the kubeconfig at the control-plane VM and name the context skywatch
+  ansible.builtin.set_fact:
+    skywatch_kubeconfig: >-
+      {{
+        server_kubeconfig.stdout
+        | replace('https://127.0.0.1:6443', 'https://' ~ hostvars[groups['k3s_server'][0]].k3s_server_ip ~ ':6443')
+        | regex_replace('name: default', 'name: ' ~ cluster_context)
+        | regex_replace('cluster: default', 'cluster: ' ~ cluster_context)
+        | regex_replace('user: default', 'user: ' ~ cluster_context)
+        | regex_replace('current-context: default', 'current-context: ' ~ cluster_context)
+      }}
+
+- name: Write the skywatch kubeconfig
+  ansible.builtin.copy:
+    dest: "{{ kubeconfig_path }}"
+    content: "{{ skywatch_kubeconfig }}\n"
+    mode: "0600"
+
+- name: Ensure the host kubeconfig directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.kube"
+    state: directory
+    mode: "0700"
+
+- name: Merge the skywatch context into the host kubeconfig
+  ansible.builtin.shell: |
+    set -euo pipefail
+    host_config="${HOME}/.kube/config"
+    touch "${host_config}"
+    KUBECONFIG="{{ kubeconfig_path }}:${host_config}" kubectl config view --flatten > "${host_config}.skywatch-merge"
+    mv "${host_config}.skywatch-merge" "${host_config}"
+    chmod 600 "${host_config}"
+  args:
+    executable: /bin/bash
+  register: merged
+  changed_when: true
+
+- name: Use the skywatch context
+  ansible.builtin.command: kubectl config use-context {{ cluster_context }}
+  changed_when: false

@@ -1,0 +1,44 @@
+---
+- name: Create the Multipass VMs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - vms
+
+- name: Install the pinned K3s server
+  hosts: k3s_server
+  gather_facts: true
+  become: true
+  roles:
+    - k3s_server
+
+- name: Join the workers
+  hosts: k3s_agents
+  gather_facts: true
+  become: true
+  roles:
+    - k3s_agent
+
+- name: Wait until every node is Ready
+  hosts: k3s_server
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Wait for three Ready nodes
+      ansible.builtin.command: k3s kubectl get nodes --no-headers
+      register: nodes
+      changed_when: false
+      failed_when: false
+      retries: 36
+      delay: 5
+      until: >-
+        nodes.rc == 0 and
+        (nodes.stdout_lines | default([]) | select('search', '\\sReady\\s') | list | length) == 3
+
+- name: Publish a skywatch kube context on the host
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - kubeconfig

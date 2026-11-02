@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SkyWatch</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f4f7fb;
+      color: #1c2834;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    main {
+      width: min(32rem, calc(100% - 2rem));
+      background: white;
+      border: 1px solid #d5dee8;
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.8rem;
+    }
+    p.lede {
+      margin: 0 0 1.25rem;
+      color: #526273;
+    }
+    form {
+      display: flex;
+      gap: 0.5rem;
+    }
+    label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    input {
+      flex: 1;
+      font: inherit;
+      padding: 0.6rem 0.7rem;
+      border: 1px solid #b7c3d0;
+      border-radius: 8px;
+    }
+    button {
+      font: inherit;
+      background: #1f4e79;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      cursor: pointer;
+    }
+    .result, .error {
+      margin-top: 1.25rem;
+    }
+    .temp {
+      font-size: 2rem;
+      margin: 0.2rem 0;
+    }
+    .error {
+      color: #8d2a2a;
+    }
+    .meta {
+      color: #526273;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>SkyWatch</h1>
+    <p class="lede">Current weather for a city.</p>
+    <form method="post" action="/">
+      <label for="city">City</label>
+      <input id="city" name="city" type="text" value="{{ city }}" placeholder="City name" autocomplete="off" required>
+      <button type="submit">Get weather</button>
+    </form>
+    {% if error %}
+      <p class="error" role="alert">{{ error }}</p>
+    {% endif %}
+    {% if weather %}
+      <section class="result">
+        <h2>{{ weather.city }}{% if weather.country %}, {{ weather.country }}{% endif %}</h2>
+        <p class="temp">{{ weather.temperature }} {{ weather.temperature_unit }}</p>
+        <p>{{ weather.conditions }}</p>
+        {% if weather.observed_at %}
+          <p class="meta">Observed at {{ weather.observed_at }}</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>

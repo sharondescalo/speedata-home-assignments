@@ -1,0 +1,99 @@
+---
+- name: Ensure the SkyWatch SSH directory exists
+  ansible.builtin.file:
+    path: "{{ skywatch_ssh_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Create the SkyWatch SSH key
+  ansible.builtin.command:
+    cmd: ssh-keygen -t ed25519 -f {{ skywatch_ssh_key }} -N "" -C skywatch -q
+    creates: "{{ skywatch_ssh_key }}"
+
+- name: Read the SkyWatch public key
+  ansible.builtin.slurp:
+    src: "{{ skywatch_ssh_key }}.pub"
+  register: skywatch_pubkey_file
+
+- name: Remember the public key
+  ansible.builtin.set_fact:
+    skywatch_public_key: "{{ skywatch_pubkey_file.content | b64decode | trim }}"
+    multipass_ssh_key: "{{ skywatch_ssh_key }}"
+
+- name: Write cloud-init user data for new VMs
+  ansible.builtin.copy:
+    dest: "{{ skywatch_ssh_dir }}/user-data.yaml"
+    mode: "0600"
+    content: |
+      #cloud-config
+      ssh_authorized_keys:
+        - {{ skywatch_public_key }}
+
+- name: Read current VM info
+  ansible.builtin.command: multipass info {{ item.name }} --format json
+  loop: "{{ vms }}"
+  register: vm_info
+  changed_when: false
+  failed_when: false
+
+- name: Launch VMs that do not exist yet
+  ansible.builtin.command: >-
+    multipass launch {{ ubuntu_release }}
+    --name {{ item.item.name }}
+    --cpus {{ item.item.cpus }}
+    --memory {{ item.item.memory }}
+    --disk {{ item.item.disk }}
+    --cloud-init {{ skywatch_ssh_dir }}/user-data.yaml
+  loop: "{{ vm_info.results }}"
+  when: item.rc != 0
+
+- name: Start VMs that are stopped
+  ansible.builtin.command: multipass start {{ item.item.name }}
+  loop: "{{ vm_info.results }}"
+  when: item.rc == 0 and (item.stdout | from_json).info[item.item.name].state != 'Running'
+
+- name: Wait until each VM has an address
+  ansible.builtin.command: multipass info {{ item.name }} --format json
+  loop: "{{ vms }}"
+  register: vm_ready
+  changed_when: false
+  retries: 24
+  delay: 5
+  until: >-
+    (vm_ready.stdout | from_json).info[item.name].state == 'Running'
+    and ((vm_ready.stdout | from_json).info[item.name].ipv4 | default([]) | length) > 0
+
+- name: Authorize the SkyWatch key once each VM accepts SSH
+  ansible.builtin.shell: |
+    set -euo pipefail
+    key_file="{{ skywatch_ssh_key }}.pub"
+    for name in {{ vms | map(attribute='name') | join(' ') }}; do
+      ready=0
+      for attempt in $(seq 1 36); do
+        if multipass exec "$name" -- true; then
+          ready=1
+          break
+        fi
+        sleep 5
+      done
+      if [ "$ready" -ne 1 ]; then
+        echo "timed out waiting for SSH on ${name}" >&2
+        exit 1
+      fi
+      multipass transfer "$key_file" "${name}:/tmp/skywatch.pub"
+      multipass exec "$name" -- bash -lc 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && grep -qxF "$(cat /tmp/skywatch.pub)" ~/.ssh/authorized_keys || cat /tmp/skywatch.pub >> ~/.ssh/authorized_keys; rm -f /tmp/skywatch.pub'
+    done
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Add the VMs to the in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ item.item.name }}"
+    groups: "{{ 'k3s_server' if item.item.role == 'server' else 'k3s_agents' }}"
+    ansible_host: "{{ (item.stdout | from_json).info[item.item.name].ipv4[0] }}"
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "{{ multipass_ssh_key }}"
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new"
+  loop: "{{ vm_ready.results }}"

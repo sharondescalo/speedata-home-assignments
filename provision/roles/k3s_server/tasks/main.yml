@@ -1,0 +1,46 @@
+---
+- name: Read the installed K3s version
+  ansible.builtin.command: k3s --version
+  register: k3s_installed
+  changed_when: false
+  failed_when: false
+
+- name: Refuse to replace a different K3s version
+  ansible.builtin.fail:
+    msg: "This node has {{ k3s_installed.stdout_lines[0] }}, expected {{ k3s_version }}."
+  when:
+    - k3s_installed.rc == 0
+    - k3s_version not in k3s_installed.stdout
+
+- name: Install the pinned K3s server
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION='{{ k3s_version }}' sh -s - server \
+      --node-taint '{{ control_plane_taint }}'
+  args:
+    executable: /bin/bash
+  when: k3s_installed.rc != 0
+
+- name: Ensure the k3s service is enabled and running
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+
+- name: Read the node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token
+
+- name: Publish the node token and server address to the workers
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ node_token.content | b64decode | trim }}"
+    k3s_server_ip: "{{ ansible_host }}"
+
+- name: Ensure the control-plane taint is present
+  ansible.builtin.command: >-
+    k3s kubectl taint node {{ ansible_hostname }} {{ control_plane_taint }}
+  register: taint_result
+  changed_when: taint_result.rc == 0
+  failed_when: >-
+    taint_result.rc != 0 and 'already has' not in (taint_result.stderr | default(''))

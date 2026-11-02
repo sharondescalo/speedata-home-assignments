@@ -1,0 +1,58 @@
+---
+- name: Remove the SkyWatch VMs and kube context
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Delete and purge each VM
+      ansible.builtin.command: multipass delete --purge {{ item.name }}
+      loop: "{{ vms }}"
+      register: deleted
+      changed_when: deleted.rc == 0
+      failed_when: >-
+        deleted.rc != 0 and
+        'does not exist' not in (deleted.stderr | default('')) and
+        'not found' not in (deleted.stderr | default(''))
+
+    - name: Remove the generated kubeconfig file
+      ansible.builtin.file:
+        path: "{{ kubeconfig_path }}"
+        state: absent
+
+    - name: Check whether the e2e-mock context exists
+      ansible.builtin.command: kubectl config get-contexts -o name
+      register: contexts
+      changed_when: false
+      failed_when: false
+
+    - name: Restore the e2e-mock context before removing skywatch
+      ansible.builtin.command: kubectl config use-context e2e-mock
+      when: contexts.rc == 0 and 'e2e-mock' in contexts.stdout_lines
+      changed_when: true
+
+    - name: Remove the skywatch kube context
+      ansible.builtin.command: kubectl config delete-context {{ cluster_context }}
+      register: delete_context
+      changed_when: delete_context.rc == 0
+      failed_when: >-
+        delete_context.rc != 0 and
+        'not found' not in (delete_context.stderr | default('')) and
+        'not in ' not in (delete_context.stderr | default(''))
+
+    - name: Remove the skywatch cluster entry
+      ansible.builtin.command: kubectl config delete-cluster {{ cluster_context }}
+      register: delete_cluster
+      changed_when: delete_cluster.rc == 0
+      failed_when: >-
+        delete_cluster.rc != 0 and
+        'not found' not in (delete_cluster.stderr | default('')) and
+        'not in ' not in (delete_cluster.stderr | default(''))
+
+    - name: Remove the skywatch user entry
+      ansible.builtin.command: kubectl config delete-user {{ cluster_context }}
+      register: delete_user
+      changed_when: delete_user.rc == 0
+      failed_when: >-
+        delete_user.rc != 0 and
+        'not found' not in (delete_user.stderr | default('')) and
+        'not in ' not in (delete_user.stderr | default(''))

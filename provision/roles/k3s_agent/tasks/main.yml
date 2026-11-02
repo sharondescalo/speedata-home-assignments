@@ -1,0 +1,31 @@
+---
+- name: Read the installed K3s version
+  ansible.builtin.command: k3s --version
+  register: k3s_installed
+  changed_when: false
+  failed_when: false
+
+- name: Refuse to replace a different K3s version
+  ansible.builtin.fail:
+    msg: "This node has {{ k3s_installed.stdout_lines[0] }}, expected {{ k3s_version }}."
+  when:
+    - k3s_installed.rc == 0
+    - k3s_version not in k3s_installed.stdout
+
+- name: Join the pinned K3s agent
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION='{{ k3s_version }}' \
+      K3S_URL='https://{{ hostvars[groups["k3s_server"][0]].k3s_server_ip }}:6443' \
+      K3S_TOKEN='{{ hostvars[groups["k3s_server"][0]].k3s_node_token }}' \
+      sh -s - agent
+  args:
+    executable: /bin/bash
+  when: k3s_installed.rc != 0
+
+- name: Ensure the k3s-agent service is enabled and running
+  ansible.builtin.systemd:
+    name: k3s-agent
+    enabled: true
+    state: started

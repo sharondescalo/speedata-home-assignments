@@ -1,0 +1,25 @@
+k3s_version: v1.36.5+k3s1
+ubuntu_release: "24.04"
+cluster_context: skywatch
+control_plane_taint: "node-role.kubernetes.io/control-plane:NoSchedule"
+kubeconfig_path: "{{ playbook_dir }}/.skywatch.kubeconfig"
+
+vms:
+  - name: skywatch-cp
+    cpus: 2
+    memory: 1536M
+    disk: 10G
+    role: server
+  - name: skywatch-w1
+    cpus: 2
+    memory: 2560M
+    disk: 15G
+    role: agent
+  - name: skywatch-w2
+    cpus: 2
+    memory: 2560M
+    disk: 15G
+    role: agent
+
+skywatch_ssh_dir: "{{ playbook_dir }}/.ssh"
+skywatch_ssh_key: "{{ playbook_dir }}/.ssh/id_ed25519"

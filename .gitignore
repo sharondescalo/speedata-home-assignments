@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.Python
+*.egg-info/
+.DS_Store
+provision/.skywatch.kubeconfig
+provision/.ssh/

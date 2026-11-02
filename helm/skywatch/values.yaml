@@ -1,0 +1,9 @@
+# CI writes frontend.image.tag and backend.image.tag on each push to main.
+frontend:
+  image:
+    repository: ghcr.io/sharondescalo/skywatch-frontend
+    tag: "unreleased"
+backend:
+  image:
+    repository: ghcr.io/sharondescalo/skywatch-backend
+    tag: "unreleased"
