@@ -1,17 +1,28 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: skywatch
+  name: skywatch-backend
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
     repoURL: https://github.com/sharondescalo/speedata-home-assignments.git
     targetRevision: main
     path: helm/skywatch
+    helm:
+      values: |
+        frontend:
+          enabled: false
+        backend:
+          enabled: true
+        metrics:
+          serviceMonitor:
+            enabled: true
   destination:
     server: https://kubernetes.default.svc
-    namespace: skywatch
+    namespace: prod
   syncPolicy:
     automated:
       prune: true

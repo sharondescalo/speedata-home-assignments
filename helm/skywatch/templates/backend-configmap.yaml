@@ -1,3 +1,4 @@
+{{- if .Values.backend.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,3 +9,4 @@ data:
   GEOCODING_API_URL: {{ .Values.backend.config.geocodingApiURL | quote }}
   FORECAST_API_URL: {{ .Values.backend.config.forecastApiURL | quote }}
   REQUEST_TIMEOUT_SECONDS: {{ .Values.backend.config.requestTimeoutSeconds | quote }}
+{{- end }}

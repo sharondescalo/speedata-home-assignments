@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.17.1
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/gitops/monitoring/values.yaml
+    - repoURL: https://github.com/sharondescalo/speedata-home-assignments.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/sharondescalo/speedata-home-assignments.git
+      targetRevision: main
+      path: gitops/monitoring/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

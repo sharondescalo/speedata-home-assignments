@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 
 from flask import Flask, render_template, request
+from metrics import install_metrics
 
 DEFAULT_BACKEND_URL = "http://127.0.0.1:8000"
 DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -69,6 +70,7 @@ def _error_payload(exc: urllib.error.HTTPError) -> dict:
 
 def create_app(fetch_weather_fn=fetch_weather) -> Flask:
     app = Flask(__name__)
+    install_metrics(app)
 
     @app.get("/healthz")
     def healthz():
