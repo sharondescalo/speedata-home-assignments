@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
     paths:
@@ -47,6 +48,7 @@ jobs:
         working-directory: apps/frontend
 
   images:
+    if: github.event_name == 'push'
     needs: [lint, test]
     runs-on: ubuntu-latest
     permissions:
@@ -81,6 +83,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
   tags:
+    if: github.event_name == 'push'
     needs: images
     runs-on: ubuntu-latest
     permissions:

@@ -1,0 +1,23 @@
+# Root of the app-of-apps tree. Applied once, after Argo CD v3.5.7 is installed.
+# It syncs every Application manifest under gitops/apps. This file stays outside
+# that directory so speedata-apps does not manage itself.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: speedata-apps
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sharondescalo/speedata-home-assignments.git
+    targetRevision: main
+    path: gitops/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

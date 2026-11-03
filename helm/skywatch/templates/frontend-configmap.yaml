@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skywatch-frontend
+  labels:
+    {{- include "skywatch.frontendSelector" . | nindent 4 }}
+data:
+  BACKEND_URL: {{ .Values.frontend.config.backendURL | quote }}
+  REQUEST_TIMEOUT_SECONDS: {{ .Values.frontend.config.requestTimeoutSeconds | quote }}
