@@ -1,0 +1,55 @@
+# Slim kube-prometheus-stack for the local VMs.
+# Grafana anonymous Admin is on, so this file stores no password.
+crds:
+  enabled: true
+defaultRules:
+  create: false
+alertmanager:
+  enabled: false
+nodeExporter:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    retentionSize: 512MB
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+grafana:
+  defaultDashboardsEnabled: false
+  service:
+    type: NodePort
+    nodePort: 30030
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+  grafana.ini:
+    auth.anonymous:
+      enabled: true
+      org_role: Admin

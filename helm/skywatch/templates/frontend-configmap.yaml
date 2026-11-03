@@ -1,3 +1,4 @@
+{{- if .Values.frontend.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,3 +8,4 @@ metadata:
 data:
   BACKEND_URL: {{ .Values.frontend.config.backendURL | quote }}
   REQUEST_TIMEOUT_SECONDS: {{ .Values.frontend.config.requestTimeoutSeconds | quote }}
+{{- end }}

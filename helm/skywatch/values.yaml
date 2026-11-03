@@ -1,6 +1,7 @@
 # CI writes frontend.image.tag and backend.image.tag on each push to main.
 # Those two lines must stay quoted tag fields. The workflow replaces them by regex.
 frontend:
+  enabled: true
   replicaCount: 1
   image:
     repository: ghcr.io/sharondescalo/skywatch-frontend
@@ -21,6 +22,7 @@ frontend:
       cpu: 500m
       memory: 256Mi
 backend:
+  enabled: true
   replicaCount: 2
   image:
     repository: ghcr.io/sharondescalo/skywatch-backend
@@ -40,3 +42,6 @@ backend:
     limits:
       cpu: 500m
       memory: 256Mi
+metrics:
+  serviceMonitor:
+    enabled: false

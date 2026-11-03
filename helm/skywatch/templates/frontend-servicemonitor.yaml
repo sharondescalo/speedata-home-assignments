@@ -1,0 +1,15 @@
+{{- if and .Values.frontend.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: skywatch-frontend
+  labels:
+    {{- include "skywatch.frontendSelector" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "skywatch.frontendSelector" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+{{- end }}

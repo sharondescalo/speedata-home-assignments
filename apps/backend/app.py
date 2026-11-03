@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 
 from flask import Flask, request
+from metrics import install_metrics
 from weather import CityNotFound, UpstreamError, get_weather
 
 
 def create_app(get_weather_fn=get_weather) -> Flask:
     app = Flask(__name__)
+    install_metrics(app)
 
     @app.get("/healthz")
     def healthz():

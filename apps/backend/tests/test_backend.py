@@ -128,6 +128,14 @@ class ApiTests(unittest.TestCase):
 
         self.client = app_module.create_app(fake_get_weather).test_client()
 
+    def test_metrics_records_the_health_check(self):
+        self.client.get("/healthz")
+        metrics = self.client.get("/metrics")
+        self.assertEqual(metrics.status_code, 200)
+        body = metrics.get_data(as_text=True)
+        self.assertIn("skywatch_http_requests_total", body)
+        self.assertIn('path="/healthz"', body)
+
     def test_health_endpoints(self):
         health = self.client.get("/healthz")
         ready = self.client.get("/readyz")
