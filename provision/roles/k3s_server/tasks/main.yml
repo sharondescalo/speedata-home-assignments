@@ -39,7 +39,7 @@
 
 - name: Ensure the control-plane taint is present
   ansible.builtin.command: >-
-    k3s kubectl taint node {{ ansible_hostname }} {{ control_plane_taint }}
+    k3s kubectl taint node {{ inventory_hostname }} {{ control_plane_taint }}
   register: taint_result
   changed_when: taint_result.rc == 0
   failed_when: >-

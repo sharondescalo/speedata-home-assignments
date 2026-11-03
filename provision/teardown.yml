@@ -4,6 +4,13 @@
   connection: local
   gather_facts: false
   tasks:
+    - name: Remove SkyWatch names from /etc/hosts
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "{{ skywatch_dns_marker }}"
+        state: absent
+
     - name: Delete and purge each VM
       ansible.builtin.command: multipass delete --purge {{ item.name }}
       loop: "{{ vms }}"

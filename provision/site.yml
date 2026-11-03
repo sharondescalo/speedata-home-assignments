@@ -8,14 +8,14 @@
 
 - name: Install the pinned K3s server
   hosts: k3s_server
-  gather_facts: true
+  gather_facts: false
   become: true
   roles:
     - k3s_server
 
 - name: Join the workers
   hosts: k3s_agents
-  gather_facts: true
+  gather_facts: false
   become: true
   roles:
     - k3s_agent
@@ -42,3 +42,13 @@
   gather_facts: false
   roles:
     - kubeconfig
+
+- name: Install Argo CD and the app-of-apps root
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [argocd]
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  roles:
+    - argocd
