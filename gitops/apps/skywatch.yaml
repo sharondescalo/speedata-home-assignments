@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: skywatch
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sharondescalo/speedata-home-assignments.git
+    targetRevision: main
+    path: helm/skywatch
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: skywatch
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

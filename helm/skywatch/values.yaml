@@ -1,9 +1,42 @@
 # CI writes frontend.image.tag and backend.image.tag on each push to main.
+# Those two lines must stay quoted tag fields. The workflow replaces them by regex.
 frontend:
+  replicaCount: 1
   image:
     repository: ghcr.io/sharondescalo/skywatch-frontend
     tag: "c508ce0e2430224667de036d445c8a7b318c5862"
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 8080
+    nodePort: 30080
+  config:
+    backendURL: http://skywatch-backend:8000
+    requestTimeoutSeconds: "5"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 backend:
+  replicaCount: 2
   image:
     repository: ghcr.io/sharondescalo/skywatch-backend
     tag: "c508ce0e2430224667de036d445c8a7b318c5862"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  config:
+    geocodingApiURL: https://geocoding-api.open-meteo.com
+    forecastApiURL: https://api.open-meteo.com
+    requestTimeoutSeconds: "5"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
