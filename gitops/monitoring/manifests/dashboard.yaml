@@ -8,36 +8,191 @@ data:
   skywatch.json: |
     {
       "uid": "skywatch",
-      "title": "SkyWatch",
+      "title": "SkyWatch service health",
+      "description": "Rate, errors, duration, and saturation for the frontend and the backend.",
+      "tags": ["skywatch", "sre"],
       "schemaVersion": 39,
       "refresh": "30s",
       "time": { "from": "now-1h", "to": "now" },
       "panels": [
+        {"type": "row", "id": 1, "title": "Frontend", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}},
         {
-          "type": "timeseries",
-          "title": "Request rate",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "type": "stat", "id": 2, "title": "Scrape up",
+          "description": "Prometheus could scrape /metrics.",
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "avg(up{job=\"skywatch-frontend\"})", "legendFormat": "up"}]
+        },
+        {
+          "type": "stat", "id": 3, "title": "Ready replicas",
+          "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "kube_deployment_status_replicas_available{namespace=\"prod\",deployment=\"skywatch-frontend\"}", "legendFormat": "ready"}]
+        },
+        {
+          "type": "stat", "id": 4, "title": "Ready probe",
+          "description": "Share of /readyz responses that are 200.",
+          "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.99}, {"color": "green", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-frontend\",path=\"/readyz\",status=\"200\"}[5m])) / sum(rate(skywatch_http_requests_total{job=\"skywatch-frontend\",path=\"/readyz\"}[5m]))", "legendFormat": "readyz"}]
+        },
+        {
+          "type": "stat", "id": 5, "title": "User 5xx",
+          "description": "5xx share of traffic that is not a probe.",
+          "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-frontend\",path!~\"/healthz|/readyz\",status=~\"5..\"}[5m])) / sum(rate(skywatch_http_requests_total{job=\"skywatch-frontend\",path!~\"/healthz|/readyz\"}[5m]))", "legendFormat": "5xx"}]
+        },
+        {
+          "type": "stat", "id": 6, "title": "User p95",
+          "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(skywatch_http_request_duration_seconds_bucket{job=\"skywatch-frontend\",path!~\"/healthz|/readyz\"}[5m])) by (le))", "legendFormat": "p95"}]
+        },
+        {
+          "type": "stat", "id": 7, "title": "Restarts 1h",
+          "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"prod\",container=\"frontend\"}[1h]))", "legendFormat": "restarts"}]
+        },
+        {
+          "type": "timeseries", "id": 8, "title": "Request rate",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-frontend\"}[5m])) by (path, status)", "legendFormat": "{{path}} {{status}}"}]
+        },
+        {
+          "type": "timeseries", "id": 9, "title": "Latency p95",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(skywatch_http_request_duration_seconds_bucket{job=\"skywatch-frontend\"}[5m])) by (le, path))", "legendFormat": "{{path}}"}]
+        },
+        {
+          "type": "timeseries", "id": 10, "title": "CPU",
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 13},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "short", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
           "targets": [
-            {
-              "expr": "sum(rate(skywatch_http_requests_total[5m])) by (path, status)",
-              "legendFormat": "{{path}} {{status}}"
-            }
+            {"expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"prod\",pod=~\"skywatch-frontend-.+\",container!=\"\"}[5m])) by (pod)", "legendFormat": "{{pod}}"},
+            {"expr": "sum(kube_pod_container_resource_limits{namespace=\"prod\",pod=~\"skywatch-frontend-.+\",container=\"frontend\",resource=\"cpu\"}) by (pod)", "legendFormat": "limit {{pod}}"}
           ]
         },
         {
-          "type": "timeseries",
-          "title": "Latency p95",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": {
-            "defaults": { "unit": "s" }
-          },
+          "type": "timeseries", "id": 11, "title": "Memory",
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 13},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
           "targets": [
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(skywatch_http_request_duration_seconds_bucket[5m])) by (le, path))",
-              "legendFormat": "{{path}}"
-            }
+            {"expr": "sum(container_memory_working_set_bytes{namespace=\"prod\",pod=~\"skywatch-frontend-.+\",container!=\"\"}) by (pod)", "legendFormat": "{{pod}}"},
+            {"expr": "sum(kube_pod_container_resource_limits{namespace=\"prod\",pod=~\"skywatch-frontend-.+\",container=\"frontend\",resource=\"memory\"}) by (pod)", "legendFormat": "limit {{pod}}"}
+          ]
+        },
+        {"type": "row", "id": 12, "title": "Backend", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20}},
+        {
+          "type": "stat", "id": 13, "title": "Scrape up",
+          "description": "Prometheus could scrape /metrics. One target per replica.",
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "min(up{job=\"skywatch-backend\"})", "legendFormat": "up"}]
+        },
+        {
+          "type": "stat", "id": 14, "title": "Ready replicas",
+          "gridPos": {"h": 4, "w": 4, "x": 4, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 1}, {"color": "green", "value": 2}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "kube_deployment_status_replicas_available{namespace=\"prod\",deployment=\"skywatch-backend\"}", "legendFormat": "ready"}]
+        },
+        {
+          "type": "stat", "id": 15, "title": "Ready probe",
+          "description": "Share of /readyz responses that are 200.",
+          "gridPos": {"h": 4, "w": 4, "x": 8, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.99}, {"color": "green", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-backend\",path=\"/readyz\",status=\"200\"}[5m])) / sum(rate(skywatch_http_requests_total{job=\"skywatch-backend\",path=\"/readyz\"}[5m]))", "legendFormat": "readyz"}]
+        },
+        {
+          "type": "stat", "id": 16, "title": "User 5xx",
+          "description": "5xx share of /api/weather.",
+          "gridPos": {"h": 4, "w": 4, "x": 12, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-backend\",path=\"/api/weather\",status=~\"5..\"}[5m])) / sum(rate(skywatch_http_requests_total{job=\"skywatch-backend\",path=\"/api/weather\"}[5m]))", "legendFormat": "5xx"}]
+        },
+        {
+          "type": "stat", "id": 17, "title": "Weather p95",
+          "gridPos": {"h": 4, "w": 4, "x": 16, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(skywatch_http_request_duration_seconds_bucket{job=\"skywatch-backend\",path=\"/api/weather\"}[5m])) by (le))", "legendFormat": "p95"}]
+        },
+        {
+          "type": "stat", "id": 18, "title": "Restarts 1h",
+          "gridPos": {"h": 4, "w": 4, "x": 20, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}}},
+          "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"prod\",container=\"backend\"}[1h]))", "legendFormat": "restarts"}]
+        },
+        {
+          "type": "timeseries", "id": 19, "title": "Request rate",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 25},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"expr": "sum(rate(skywatch_http_requests_total{job=\"skywatch-backend\"}[5m])) by (path, status)", "legendFormat": "{{path}} {{status}}"}]
+        },
+        {
+          "type": "timeseries", "id": 20, "title": "Latency p95",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 25},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(skywatch_http_request_duration_seconds_bucket{job=\"skywatch-backend\"}[5m])) by (le, path))", "legendFormat": "{{path}}"}]
+        },
+        {
+          "type": "timeseries", "id": 21, "title": "CPU",
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 33},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "short", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [
+            {"expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"prod\",pod=~\"skywatch-backend-.+\",container!=\"\"}[5m])) by (pod)", "legendFormat": "{{pod}}"},
+            {"expr": "sum(kube_pod_container_resource_limits{namespace=\"prod\",pod=~\"skywatch-backend-.+\",container=\"backend\",resource=\"cpu\"}) by (pod)", "legendFormat": "limit {{pod}}"}
+          ]
+        },
+        {
+          "type": "timeseries", "id": 22, "title": "Memory",
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 33},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"fillOpacity": 15}}},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+          "targets": [
+            {"expr": "sum(container_memory_working_set_bytes{namespace=\"prod\",pod=~\"skywatch-backend-.+\",container!=\"\"}) by (pod)", "legendFormat": "{{pod}}"},
+            {"expr": "sum(kube_pod_container_resource_limits{namespace=\"prod\",pod=~\"skywatch-backend-.+\",container=\"backend\",resource=\"memory\"}) by (pod)", "legendFormat": "limit {{pod}}"}
           ]
         }
       ]
