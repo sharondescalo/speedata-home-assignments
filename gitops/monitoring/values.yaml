@@ -38,6 +38,11 @@ grafana:
   service:
     type: NodePort
     nodePort: 30030
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - grafana.skywatch.test
   resources:
     requests:
       cpu: 50m
@@ -50,6 +55,8 @@ grafana:
       enabled: true
       searchNamespace: ALL
   grafana.ini:
+    server:
+      root_url: http://grafana.skywatch.test/
     auth.anonymous:
       enabled: true
       org_role: Admin
