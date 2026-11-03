@@ -151,7 +151,7 @@ Both apps read their settings from the environment. The chart's ConfigMaps set t
 | `PORT` | both | Listen port, 8080 or 8000 |
 
 
-## Dashboard traffic
+## Test script to make some traffic
 
 `scripts/dashboard-traffic.sh` posts city lookups to http://skywatch.test. Each lookup hits the frontend and, through it, `/api/weather` on the backend. One city in the list does not exist, so the backend records 404s. The script does not call the health probes. Those panels ignore `/healthz` and `/readyz`.
 
