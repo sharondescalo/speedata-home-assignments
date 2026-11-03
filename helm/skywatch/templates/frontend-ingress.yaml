@@ -1,0 +1,21 @@
+{{- if and .Values.frontend.enabled .Values.frontend.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skywatch-frontend
+  labels:
+    {{- include "skywatch.frontendSelector" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.frontend.ingress.className }}
+  rules:
+    - host: {{ .Values.frontend.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: skywatch-frontend
+                port:
+                  name: http
+{{- end }}

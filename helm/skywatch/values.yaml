@@ -11,6 +11,10 @@ frontend:
     type: NodePort
     port: 8080
     nodePort: 30080
+  ingress:
+    enabled: true
+    className: traefik
+    host: skywatch.test
   config:
     backendURL: http://skywatch-backend:8000
     requestTimeoutSeconds: "5"
