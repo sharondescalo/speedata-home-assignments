@@ -1,4 +1,12 @@
 k3s_version: v1.36.5+k3s1
+argocd_version: v3.5.7
+argocd_node_port: 30443
+skywatch_dns_vm: skywatch-w1
+skywatch_dns_names:
+  - skywatch.test
+  - grafana.skywatch.test
+  - argocd.skywatch.test
+skywatch_dns_marker: "# {mark} SKYWATCH DNS"
 ubuntu_release: "24.04"
 cluster_context: skywatch
 control_plane_taint: "node-role.kubernetes.io/control-plane:NoSchedule"
@@ -7,7 +15,7 @@ kubeconfig_path: "{{ playbook_dir }}/.skywatch.kubeconfig"
 vms:
   - name: skywatch-cp
     cpus: 2
-    memory: 1536M
+    memory: 2560M
     disk: 10G
     role: server
   - name: skywatch-w1

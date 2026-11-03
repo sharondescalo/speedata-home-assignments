@@ -1,0 +1,88 @@
+---
+- name: Ensure the argocd namespace exists
+  ansible.builtin.command: kubectl create namespace argocd
+  register: argocd_namespace
+  changed_when: argocd_namespace.rc == 0
+  failed_when: argocd_namespace.rc != 0 and 'AlreadyExists' not in argocd_namespace.stderr
+
+- name: Install Argo CD {{ argocd_version }}
+  ansible.builtin.command: >-
+    kubectl apply -n argocd --server-side --force-conflicts
+    -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ argocd_version }}/manifests/install.yaml
+  changed_when: false
+
+- name: Serve the Argo CD UI on HTTP behind the ingress
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - -n
+      - argocd
+      - patch
+      - configmap
+      - argocd-cmd-params-cm
+      - --type
+      - merge
+      - -p
+      - '{"data":{"server.insecure":"true"}}'
+  register: argocd_insecure
+  changed_when: "'no change' not in argocd_insecure.stdout"
+
+- name: Restart the Argo CD server when HTTP mode changes
+  ansible.builtin.command: kubectl -n argocd rollout restart deployment/argocd-server
+  when: argocd_insecure.changed
+
+- name: Wait for the Argo CD server
+  ansible.builtin.command: kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
+  changed_when: false
+
+- name: Wait for the Argo CD repo server
+  ansible.builtin.command: kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=300s
+  changed_when: false
+
+- name: Wait for the Argo CD application controller
+  ansible.builtin.command: kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=300s
+  changed_when: false
+
+- name: Apply the speedata-apps root
+  ansible.builtin.command: kubectl apply -f {{ playbook_dir }}/../gitops/speedata-apps.yaml
+  register: speedata_apps
+  changed_when: "'unchanged' not in speedata_apps.stdout"
+
+- name: Read the Argo CD server service
+  ansible.builtin.command: kubectl -n argocd get svc argocd-server -o json
+  register: argocd_server_svc
+  changed_when: false
+
+- name: Remember the current Argo CD HTTPS node port
+  ansible.builtin.set_fact:
+    argocd_https_port: >-
+      {{
+        (argocd_server_svc.stdout | from_json).spec.ports
+        | selectattr('port', 'equalto', 443)
+        | first
+      }}
+
+- name: Expose Argo CD on NodePort {{ argocd_node_port }}
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - -n
+      - argocd
+      - patch
+      - svc
+      - argocd-server
+      - --type
+      - strategic
+      - -p
+      - "{{ argocd_nodeport_patch }}"
+  vars:
+    argocd_nodeport_patch: >-
+      {{
+        {
+          'spec': {
+            'type': 'NodePort',
+            'ports': [{'port': 443, 'nodePort': argocd_node_port | int}]
+          }
+        } | to_json
+      }}
+  when: (argocd_https_port.nodePort | default(0) | int) != (argocd_node_port | int)

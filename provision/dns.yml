@@ -1,0 +1,26 @@
+---
+- name: Publish SkyWatch names in the Mac hosts file
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Read the worker address used for Mac DNS
+      ansible.builtin.command: multipass info {{ skywatch_dns_vm }} --format json
+      register: skywatch_dns_vm_info
+      changed_when: false
+
+    - name: Use the 192.168.252 address for Mac DNS
+      ansible.builtin.set_fact:
+        skywatch_dns_ip: >-
+          {{
+            (skywatch_dns_vm_info.stdout | from_json).info[skywatch_dns_vm].ipv4
+            | select('match', '^192\.168\.252\.')
+            | first
+          }}
+
+    - name: Publish SkyWatch names in /etc/hosts
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "{{ skywatch_dns_marker }}"
+        block: "{{ skywatch_dns_ip }} {{ skywatch_dns_names | join(' ') }}"
